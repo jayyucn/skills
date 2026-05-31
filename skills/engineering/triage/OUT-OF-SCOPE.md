@@ -1,101 +1,79 @@
-# Out-of-Scope Knowledge Base
+# 范围外知识库
+代码仓库中的 `.out-of-scope/` 目录用于长期归档**被驳回的功能需求**，主要作用有两点：
+1. **留存决策依据**：记录功能被驳回的原因，避免事项关闭后相关考量随之丢失。
+2. **需求去重**：当出现与历史驳回内容一致的新需求时，可直接调取过往结论，无需重复讨论。
 
-The `.out-of-scope/` directory in a repo stores persistent records of rejected feature requests. It serves two purposes:
-
-1. **Institutional memory** — why a feature was rejected, so the reasoning isn't lost when the issue is closed
-2. **Deduplication** — when a new issue comes in that matches a prior rejection, the skill can surface the previous decision instead of re-litigating it
-
-## Directory structure
-
+## 目录结构
 ```
 .out-of-scope/
 ├── dark-mode.md
 ├── plugin-system.md
 └── graphql-api.md
 ```
+按照**功能概念**单独建文件，而非按单条事项建文件。多个诉求相同的事项，统一归集到同一个文件中。
 
-One file per **concept**, not per issue. Multiple issues requesting the same thing are grouped under one file.
-
-## File format
-
-The file should be written in a relaxed, readable style — more like a short design document than a database entry. Use paragraphs, code samples, and examples to make the reasoning clear and useful to someone encountering it for the first time.
+## 文件格式
+行文风格通俗易懂，偏向简易设计文档，而非机械的数据记录。可搭配段落、代码示例、案例说明，让初次查阅者也能清晰理解驳回缘由。
 
 ```markdown
-# Dark Mode
+# 深色模式
+本项目暂不支持深色模式及面向用户的主题切换功能。
 
-This project does not support dark mode or user-facing theming.
+## 驳回原因
+当前渲染流程基于 `ThemeConfig` 定义的单一配色方案。若要实现多主题，需完成以下改造：
+- 新增主题上下文容器，包裹全部组件树
+- 改造所有组件，使其适配多主题样式解析
+- 搭建持久化存储，用于保存用户的主题偏好
 
-## Why this is out of scope
-
-The rendering pipeline assumes a single color palette defined in
-`ThemeConfig`. Supporting multiple themes would require:
-
-- A theme context provider wrapping the entire component tree
-- Per-component theme-aware style resolution
-- A persistence layer for user theme preferences
-
-This is a significant architectural change that doesn't align with the
-project's focus on content authoring. Theming is a concern for downstream
-consumers who embed or redistribute the output.
+该改造属于大规模架构调整，与项目主打内容编辑的核心定位不符。主题定制功能，应由引用、二次分发本项目产物的下游方实现。
 
 ```ts
-// The current ThemeConfig interface is not designed for runtime switching:
+// 现有 ThemeConfig 接口不支持运行时切换主题：
 interface ThemeConfig {
-  colors: ColorPalette; // single palette, resolved at build time
+  colors: ColorPalette; // 仅单套配色，在编译阶段确定
   fonts: FontStack;
 }
 ```
 
-## Prior requests
-
-- #42 — "Add dark mode support"
-- #87 — "Night theme for accessibility"
-- #134 — "Dark theme option"
+## 历史相关需求
+- #42 — 「新增深色模式支持」
+- #87 — 「适配无障碍夜间主题」
+- #134 — 「增加深色主题选项」
 ```
 
-### Naming the file
+### 文件命名规则
+采用**短描述+连字符**的命名格式，例如：`dark-mode.md`、`plugin-system.md`、`graphql-api.md`。文件名需直观易懂，他人浏览目录时，无需打开文件就能大致了解被驳回的功能。
 
-Use a short, descriptive kebab-case name for the concept: `dark-mode.md`, `plugin-system.md`, `graphql-api.md`. The name should be recognizable enough that someone browsing the directory understands what was rejected without opening the file.
+### 驳回说明撰写要求
+内容必须详实具体，不能简单写“暂不开发”，需明确阐述背后原因。合理的说明可参考以下方向：
+- 项目定位与理念（例：本项目聚焦 X 能力，主题定制属于下游功能）
+- 技术限制（例：实现该功能需改动 Y 模块，与现有 Z 架构冲突）
+- 战略选型（例：我们选择方案 A 而非方案 B，原因是……）
 
-### Writing the reason
+内容需具备长期有效性，**不要提及临时状况**（例如“目前人手不足”），这类情况属于暂缓开发，并非真正驳回。
 
-The reason should be substantive — not "we don't want this" but why. Good reasons reference:
+## 何时检索 `.out-of-scope/` 目录
+在**事项分类环节（第一步：梳理背景信息）**，读取 `.out-of-scope/` 下所有文件。评估新事项时按以下规则执行：
+1. 判断当前需求是否与目录中已归档的驳回概念重合；
+2. 以**功能语义**作为匹配依据，而非单纯匹配关键词（例如“夜间主题”与 `dark-mode.md` 判定为同一需求）；
+3. 若匹配到历史记录，及时告知维护人员：**“该需求与 `.out-of-scope/dark-mode.md` 内容相似，此前因【原因】已驳回，请问本次是否维持原有结论？”**
 
-- Project scope or philosophy ("This project focuses on X; theming is a downstream concern")
-- Technical constraints ("Supporting this would require Y, which conflicts with our Z architecture")
-- Strategic decisions ("We chose to use A instead of B because...")
+维护人员可做出三种处理：
+- **维持原结论**：将新事项编号追加至对应文件的「历史相关需求」列表，随后关闭该事项。
+- **重新评估**：删除或修改对应的归档文件，该事项进入正常分类流程继续处理。
+- **区分需求**：判定新旧需求虽有关联但并不等同，该事项进入正常分类流程继续处理。
 
-The reason should be durable. Avoid referencing temporary circumstances ("we're too busy right now") — those aren't real rejections, they're deferrals.
+## 何时写入 `.out-of-scope/` 目录
+**仅针对功能优化类需求**（缺陷问题不适用），当需求被标记为 `wontfix`（不予处理）时，执行以下流程：
+1. 维护人员确定该功能需求不在项目范围内；
+2. 检查 `.out-of-scope/` 目录下是否已存在对应归档文件；
+3. 若文件已存在：将新事项补充至「历史相关需求」列表；
+4. 若文件不存在：新建归档文件，写明功能概念、驳回决定、原因，并记录第一条相关需求；
+5. 在事项评论区说明驳回决定，并标注对应的归档文件路径；
+6. 为事项打上 `wontfix` 标签并关闭。
 
-## When to check `.out-of-scope/`
-
-During triage (Step 1: Gather context), read all files in `.out-of-scope/`. When evaluating a new issue:
-
-- Check if the request matches an existing out-of-scope concept
-- Matching is by concept similarity, not keyword — "night theme" matches `dark-mode.md`
-- If there's a match, surface it to the maintainer: "This is similar to `.out-of-scope/dark-mode.md` — we rejected this before because [reason]. Do you still feel the same way?"
-
-The maintainer may:
-
-- **Confirm** — the new issue gets added to the existing file's "Prior requests" list, then closed
-- **Reconsider** — the out-of-scope file gets deleted or updated, and the issue proceeds through normal triage
-- **Disagree** — the issues are related but distinct, proceed with normal triage
-
-## When to write to `.out-of-scope/`
-
-Only when an **enhancement** (not a bug) is rejected as `wontfix`. The flow:
-
-1. Maintainer decides a feature request is out of scope
-2. Check if a matching `.out-of-scope/` file already exists
-3. If yes: append the new issue to the "Prior requests" list
-4. If no: create a new file with the concept name, decision, reason, and first prior request
-5. Post a comment on the issue explaining the decision and mentioning the `.out-of-scope/` file
-6. Close the issue with the `wontfix` label
-
-## Updating or removing out-of-scope files
-
-If the maintainer changes their mind about a previously rejected concept:
-
-- Delete the `.out-of-scope/` file
-- The skill does not need to reopen old issues — they're historical records
-- The new issue that triggered the reconsideration proceeds through normal triage
+## 归档文件的修改与删除
+若维护人员决定重新启用此前被驳回的功能：
+- 删除对应的 `.out-of-scope/` 归档文件；
+- 无需重新开启历史旧事项，历史记录保留原状即可；
+- 触发本次重新评估的新事项，按正常分类流程推进。

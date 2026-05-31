@@ -1,81 +1,71 @@
 ---
 name: improve-codebase-architecture
-description: Find deepening opportunities in a codebase, informed by the domain language in CONTEXT.md and the decisions in docs/adr/. Use when the user wants to improve architecture, find refactoring opportunities, consolidate tightly-coupled modules, or make a codebase more testable and AI-navigable.
+description: 结合 CONTEXT.md 中的领域术语与 docs/adr/ 中的既定决策，挖掘代码库中可进行模块深化的优化点。适用于用户希望优化架构、寻找重构机会、整合高耦合模块，或是提升代码可测试性与智能代码导航能力的场景。
 ---
 
-# Improve Codebase Architecture
+# 代码库架构优化
+梳理架构现存问题，并提出**模块深化方案**，也就是将浅层模块重构为深度模块。优化目标是提升代码可测试性与智能代码导航效率。
 
-Surface architectural friction and propose **deepening opportunities** — refactors that turn shallow modules into deep ones. The aim is testability and AI-navigability.
+## 术语规范
+所有优化建议**严格使用**以下术语，保持用词统一，禁止使用 component、service、API、boundary 等替代词汇。完整释义参见 [LANGUAGE.md](LANGUAGE.md)。
+- **Module（模块）**：同时包含接口与内部实现的代码单元，函数、类、代码包、代码片段均属于模块。
+- **Interface（接口）**：调用方正常使用模块所需知晓的全部内容，包含类型、约束规则、异常类型、调用顺序、配置要求，不局限于类型签名。
+- **Implementation（实现）**：模块内部的代码主体。
+- **Depth（深度）**：接口的复用能力。少量接口可承载大量业务逻辑即为**深度模块**（高复用性）；接口复杂度与实现基本持平即为**浅层模块**。
+- **Seam（衔接点）**：接口所在位置，可在不修改当前代码的前提下改变程序行为。统一使用该词汇，不要使用 boundary。
+- **Adapter（适配器）**：部署在衔接点上、并遵循对应接口规范的具体代码单元。
+- **Leverage（复用价值）**：模块深度为调用方带来的收益。
+- **Locality（内聚性）**：模块深度为维护人员带来的收益，代码变更、缺陷、业务逻辑与校验逻辑会集中在同一位置。
 
-## Glossary
+核心设计原则（完整内容参见 [LANGUAGE.md](LANGUAGE.md)）：
+- **删减测试法**：设想移除该模块。若整体复杂度随之消失，说明该模块仅做透传；若复杂度分散至多个调用方，则证明模块具备实际价值。
+- **接口即为测试边界**。
+- **单个适配器代表虚拟衔接点，两个及以上适配器才构成实际衔接点**。
 
-Use these terms exactly in every suggestion. Consistent language is the point — don't drift into "component," "service," "API," or "boundary." Full definitions in [LANGUAGE.md](LANGUAGE.md).
+本技能需结合项目领域模型开展工作：领域术语用于定义合理的衔接点；架构决策记录（ADR）为既定规范，不得重复推翻讨论。
 
-- **Module** — anything with an interface and an implementation (function, class, package, slice).
-- **Interface** — everything a caller must know to use the module: types, invariants, error modes, ordering, config. Not just the type signature.
-- **Implementation** — the code inside.
-- **Depth** — leverage at the interface: a lot of behaviour behind a small interface. **Deep** = high leverage. **Shallow** = interface nearly as complex as the implementation.
-- **Seam** — where an interface lives; a place behaviour can be altered without editing in place. (Use this, not "boundary.")
-- **Adapter** — a concrete thing satisfying an interface at a seam.
-- **Leverage** — what callers get from depth.
-- **Locality** — what maintainers get from depth: change, bugs, knowledge concentrated in one place.
+## 执行流程
+### 1. 代码探查
+首先阅读项目领域术语文档以及相关架构决策记录。
 
-Key principles (see [LANGUAGE.md](LANGUAGE.md) for the full list):
+随后调用工具并指定 `subagent_type=Explore` 遍历代码库。无需死板套用固定规则，自然梳理并记录架构痛点：
+- 理解单个业务概念需要在大量零散模块间反复跳转的位置
+- 存在**浅层模块**的位置（接口复杂度与内部实现基本一致）
+- 单纯为了便于测试而拆分纯函数，但实际问题集中在调用逻辑上（缺乏**内聚性**）的位置
+- 高耦合模块出现逻辑跨**衔接点**外溢的位置
+- 现有接口难以编写测试、或暂无测试覆盖的代码区域
 
-- **Deletion test**: imagine deleting the module. If complexity vanishes, it was a pass-through. If complexity reappears across N callers, it was earning its keep.
-- **The interface is the test surface.**
-- **One adapter = hypothetical seam. Two adapters = real seam.**
+对疑似浅层模块执行**删减测试**：移除该模块后，复杂度是得以收敛，还是只是发生转移？若能收敛复杂度，即为有效优化目标。
 
-This skill is _informed_ by the project's domain model. The domain language gives names to good seams; ADRs record decisions the skill should not re-litigate.
+### 2. 生成 HTML 报告并展示方案
+在系统临时目录生成独立完整的 HTML 文件，不向代码仓库写入任何内容。临时目录优先读取环境变量 `$TMPDIR`，Linux/macOS 兜底路径为 `/tmp`，Windows 兜底路径为 `%TEMP%`。文件命名格式：`<临时目录>/architecture-review-<时间戳>.html`，保证每次生成独立文件。
+根据系统指令打开文件：Linux 使用 `xdg-open <文件路径>`、macOS 使用 `open <文件路径>`、Windows 使用 `start <文件路径>`，并告知用户文件绝对路径。
 
-## Process
+页面布局与样式通过 CDN 引入 Tailwind 实现；流程图、调用链路、时序图等结构类图表使用 CDN 引入 Mermaid 绘制。两种方式结合使用：依赖关系、调用链、时序场景选用 Mermaid；整体布局图、分层截面图、合并效果示意图等定制化视图，使用原生标签与 SVG 编写。每个优化方案均搭配**改造前/改造后**对比视图，以可视化形式呈现。
 
-### 1. Explore
+所有优化方案统一使用卡片模板，包含以下内容：
+- **涉及文件**：相关文件与模块清单
+- **现存问题**：当前架构引发的痛点
+- **优化方案**：用通俗语言说明调整内容
+- **优化收益**：从内聚性、复用价值、测试能力三方面说明提升效果
+- **前后对比图表**：左右分栏展示，直观体现浅层问题与模块深化效果
+- **推荐等级**：标注 `Strong`（优先推荐）、`Worth exploring`（值得调研）、`Speculative`（仅供参考）
 
-Read the project's domain glossary and any ADRs in the area you're touching first.
+报告末尾增设**优先推荐**板块，说明首选优化方案及理由。
 
-Then use the Agent tool with `subagent_type=Explore` to walk the codebase. Don't follow rigid heuristics — explore organically and note where you experience friction:
+**用词要求**：业务描述沿用 CONTEXT.md 中的领域术语，架构描述沿用 [LANGUAGE.md](LANGUAGE.md) 中的架构术语。例如文档中定义了 Order（订单），则描述为“订单接入模块”，禁止自定义命名或使用 service 等词汇。
 
-- Where does understanding one concept require bouncing between many small modules?
-- Where are modules **shallow** — interface nearly as complex as the implementation?
-- Where have pure functions been extracted just for testability, but the real bugs hide in how they're called (no **locality**)?
-- Where do tightly-coupled modules leak across their seams?
-- Which parts of the codebase are untested, or hard to test through their current interface?
+**架构决策记录冲突处理**：若优化方案与现有 ADR 冲突，仅在架构痛点显著、确有必要重新评估时进行标注。在卡片内添加警示提示，例如：*“与 ADR-0007 存在冲突，因现存问题突出，建议重新评估该决策”*。无需罗列所有被 ADR 禁止的理论重构方案。
 
-Apply the **deletion test** to anything you suspect is shallow: would deleting it concentrate complexity, or just move it? A "yes, concentrates" is the signal you want.
+完整页面结构、图表样式及规范参见 [HTML-REPORT.md](HTML-REPORT.md)。
 
-### 2. Present candidates as an HTML report
+**此阶段暂不设计具体接口**。文件生成完成后，向用户提问：“你想优先调研哪一个方案？”
 
-Write a self-contained HTML file to the OS temp directory so nothing lands in the repo. Resolve the temp dir from `$TMPDIR`, falling back to `/tmp` (or `%TEMP%` on Windows), and write to `<tmpdir>/architecture-review-<timestamp>.html` so each run gets a fresh file. Open it for the user — `xdg-open <path>` on Linux, `open <path>` on macOS, `start <path>` on Windows — and tell them the absolute path.
+### 3. 深度质询沟通
+用户选定方案后，进入深度沟通环节。围绕设计分支逐一梳理：约束条件、依赖关系、深化后模块形态、衔接点内部逻辑、可保留的测试用例等。
 
-The report uses **Tailwind via CDN** for layout and styling, and **Mermaid via CDN** for diagrams where a graph/flow/sequence reliably communicates the structure. Mix Mermaid with hand-crafted CSS/SVG visuals — use Mermaid when relationships are graph-shaped (call graphs, dependencies, sequences), and hand-built divs/SVG when you want something more editorial (mass diagrams, cross-sections, collapse animations). Each candidate gets a **before/after visualisation**. Be visual.
-
-For each candidate, the same template as before, but rendered as a card:
-
-- **Files** — which files/modules are involved
-- **Problem** — why the current architecture is causing friction
-- **Solution** — plain English description of what would change
-- **Benefits** — explained in terms of locality and leverage, and how tests would improve
-- **Before / After diagram** — side-by-side, custom-drawn, illustrating the shallowness and the deepening
-- **Recommendation strength** — one of `Strong`, `Worth exploring`, `Speculative`, rendered as a badge
-
-End the report with a **Top recommendation** section: which candidate you'd tackle first and why.
-
-**Use CONTEXT.md vocabulary for the domain, and [LANGUAGE.md](LANGUAGE.md) vocabulary for the architecture.** If `CONTEXT.md` defines "Order," talk about "the Order intake module" — not "the FooBarHandler," and not "the Order service."
-
-**ADR conflicts**: if a candidate contradicts an existing ADR, only surface it when the friction is real enough to warrant revisiting the ADR. Mark it clearly in the card (e.g. a warning callout: _"contradicts ADR-0007 — but worth reopening because…"_). Don't list every theoretical refactor an ADR forbids.
-
-See [HTML-REPORT.md](HTML-REPORT.md) for the full HTML scaffold, diagram patterns, and styling guidance.
-
-Do NOT propose interfaces yet. After the file is written, ask the user: "Which of these would you like to explore?"
-
-### 3. Grilling loop
-
-Once the user picks a candidate, drop into a grilling conversation. Walk the design tree with them — constraints, dependencies, the shape of the deepened module, what sits behind the seam, what tests survive.
-
-Side effects happen inline as decisions crystallize:
-
-- **Naming a deepened module after a concept not in `CONTEXT.md`?** Add the term to `CONTEXT.md` — same discipline as `/grill-with-docs` (see [CONTEXT-FORMAT.md](../grill-with-docs/CONTEXT-FORMAT.md)). Create the file lazily if it doesn't exist.
-- **Sharpening a fuzzy term during the conversation?** Update `CONTEXT.md` right there.
-- **User rejects the candidate with a load-bearing reason?** Offer an ADR, framed as: _"Want me to record this as an ADR so future architecture reviews don't re-suggest it?"_ Only offer when the reason would actually be needed by a future explorer to avoid re-suggesting the same thing — skip ephemeral reasons ("not worth it right now") and self-evident ones. See [ADR-FORMAT.md](../grill-with-docs/ADR-FORMAT.md).
-- **Want to explore alternative interfaces for the deepened module?** See [INTERFACE-DESIGN.md](INTERFACE-DESIGN.md).
+沟通过程中，根据决策结果同步完成以下操作：
+- **新增领域术语**：若深化模块名称未在 CONTEXT.md 中定义，将该术语补充写入文件，规则同 `/grill-with-docs`（格式参见 [CONTEXT-FORMAT.md](../grill-with-docs/CONTEXT-FORMAT.md)）。文件不存在则按需创建。
+- **优化模糊术语**：沟通中梳理明确语义模糊的词汇时，立即同步更新 CONTEXT.md。
+- **记录否决方案**：若用户基于合理理由否决当前优化方案，可询问是否生成 ADR 留存记录，避免后续架构评审重复提出该方案。临时想法、显而易见的理由无需记录。格式参见 [ADR-FORMAT.md](../grill-with-docs/ADR-FORMAT.md)。
+- **备选接口设计**：如需为深化模块设计多套备选接口，参考 [INTERFACE-DESIGN.md](INTERFACE-DESIGN.md) 执行。

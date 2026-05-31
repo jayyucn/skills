@@ -1,60 +1,52 @@
-# CONTEXT.md Format
-
-## Structure
-
+# CONTEXT.md 格式规范
+## 结构
 ```md
-# {Context Name}
+# {上下文名称}
 
-{One or two sentence description of what this context is and why it exists.}
+{用一到两句话说明该上下文的用途与存在意义。}
 
-## Language
+## 术语定义
 
-**Order**:
-{A one or two sentence description of the term}
-_Avoid_: Purchase, transaction
+**Order（订单）：**
+{用一到两句话解释该术语}
+_避免使用：_ Purchase、transaction
 
-**Invoice**:
-A request for payment sent to a customer after delivery.
-_Avoid_: Bill, payment request
+**Invoice（发票）：**
+交付完成后向客户发送的付款通知单。
+_避免使用：_ Bill、payment request
 
-**Customer**:
-A person or organization that places orders.
-_Avoid_: Client, buyer, account
+**Customer（客户）：**
+下达订单的个人或组织。
+_避免使用：_ Client、buyer、account
 ```
 
-## Rules
+## 编写规则
+- **统一用词标准**：同一概念若存在多种叫法，选定唯一标准用词，并将其余写法罗列在`_避免使用_`项下。
+- **定义简洁精炼**：每条释义最多一两句话，只描述**事物本身**，不阐述其功能行为。
+- **仅收录领域专属术语**：只存放本项目上下文特有的业务概念。通用编程概念（超时、错误类型、通用工具模式等）即便项目大量使用，也无需录入。新增术语前先判断：该词汇是否为本上下文独有概念，通用编程概念一律不收录。
+- **合理归类术语**：关联性较强的术语可划分至对应子标题下；若所有术语归属同一业务范畴，直接平铺罗列即可。
 
-- **Be opinionated.** When multiple words exist for the same concept, pick the best one and list the others under `_Avoid_`.
-- **Keep definitions tight.** One or two sentences max. Define what it IS, not what it does.
-- **Only include terms specific to this project's context.** General programming concepts (timeouts, error types, utility patterns) don't belong even if the project uses them extensively. Before adding a term, ask: is this a concept unique to this context, or a general programming concept? Only the former belongs.
-- **Group terms under subheadings** when natural clusters emerge. If all terms belong to a single cohesive area, a flat list is fine.
+## 单上下文与多上下文仓库
+**单上下文（绝大多数仓库）**：仓库根目录下仅存在一份`CONTEXT.md`。
 
-## Single vs multi-context repos
-
-**Single context (most repos):** One `CONTEXT.md` at the repo root.
-
-**Multiple contexts:** A `CONTEXT-MAP.md` at the repo root lists the contexts, where they live, and how they relate to each other:
-
+**多上下文**：仓库根目录新建`CONTEXT-MAP.md`，用于罗列所有上下文、对应文件路径以及相互关联关系：
 ```md
-# Context Map
+# 上下文总览
 
-## Contexts
+## 上下文列表
+- [Ordering（订单模块）](./src/ordering/CONTEXT.md) — 接收并跟进客户订单
+- [Billing（账单模块）](./src/billing/CONTEXT.md) — 生成发票并处理付款
+- [Fulfillment（履约模块）](./src/fulfillment/CONTEXT.md) — 管理仓库拣货与发货流程
 
-- [Ordering](./src/ordering/CONTEXT.md) — receives and tracks customer orders
-- [Billing](./src/billing/CONTEXT.md) — generates invoices and processes payments
-- [Fulfillment](./src/fulfillment/CONTEXT.md) — manages warehouse picking and shipping
-
-## Relationships
-
-- **Ordering → Fulfillment**: Ordering emits `OrderPlaced` events; Fulfillment consumes them to start picking
-- **Fulfillment → Billing**: Fulfillment emits `ShipmentDispatched` events; Billing consumes them to generate invoices
-- **Ordering ↔ Billing**: Shared types for `CustomerId` and `Money`
+## 关联关系
+- **Ordering → Fulfillment**：订单模块发出`OrderPlaced`事件，履约模块监听该事件并启动拣货流程
+- **Fulfillment → Billing**：履约模块发出`ShipmentDispatched`事件，账单模块监听该事件并生成发票
+- **Ordering ↔ Billing**：共用`CustomerId`与`Money`数据类型
 ```
 
-The skill infers which structure applies:
+技能自动识别仓库结构规则：
+- 若存在`CONTEXT-MAP.md`，读取该文件获取所有上下文信息
+- 若仅根目录存在`CONTEXT.md`，判定为单上下文仓库
+- 若两份文件均不存在，在敲定第一个业务术语时，再按需在根目录创建`CONTEXT.md`
 
-- If `CONTEXT-MAP.md` exists, read it to find contexts
-- If only a root `CONTEXT.md` exists, single context
-- If neither exists, create a root `CONTEXT.md` lazily when the first term is resolved
-
-When multiple contexts exist, infer which one the current topic relates to. If unclear, ask.
+仓库存在多个上下文时，自动判断当前话题所属上下文；若无法判定，则主动询问用户。

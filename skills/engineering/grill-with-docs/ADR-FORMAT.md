@@ -1,47 +1,39 @@
-# ADR Format
+# ADR 格式规范
+ADR 文件存放于 `docs/adr/` 目录下，采用顺序编号命名：`0001-slug.md`、`0002-slug.md` 以此类推。
 
-ADRs live in `docs/adr/` and use sequential numbering: `0001-slug.md`, `0002-slug.md`, etc.
+无需提前创建目录，**在需要编写第一份 ADR 时再新建** `docs/adr/` 目录即可。
 
-Create the `docs/adr/` directory lazily — only when the first ADR is needed.
-
-## Template
-
+## 模板
 ```md
-# {Short title of the decision}
+# {决策简短标题}
 
-{1-3 sentences: what's the context, what did we decide, and why.}
+{1-3 句话：说明背景、最终决策以及制定原因。}
 ```
 
-That's it. An ADR can be a single paragraph. The value is in recording *that* a decision was made and *why* — not in filling out sections.
+格式仅此而已，一份 ADR 可以仅由一个段落构成。其核心价值是**记录决策内容与背后原因**，而非堆砌多余板块。
 
-## Optional sections
+## 可选板块
+仅在能产生实际价值时添加，绝大多数 ADR 无需用到以下内容。
+- **Status** 头部标记（可选值：`proposed | accepted | deprecated | superseded by ADR-NNNN`）：适用于决策需要重新评估的场景
+- **Considered Options（备选方案）**：仅当被否决的方案有留存参考价值时填写
+- **Consequences（影响）**：仅当存在不易察觉的后续影响，需要特别说明时填写
 
-Only include these when they add genuine value. Most ADRs won't need them.
+## 编号规则
+检索 `docs/adr/` 目录下已有的文件，取最大编号并加一，作为新 ADR 的编号。
 
-- **Status** frontmatter (`proposed | accepted | deprecated | superseded by ADR-NNNN`) — useful when decisions are revisited
-- **Considered Options** — only when the rejected alternatives are worth remembering
-- **Consequences** — only when non-obvious downstream effects need to be called out
+## 何时需要编写 ADR
+必须同时满足以下三个条件：
+1. **变更成本高**：后续推翻该决策会产生较大代价
+2. **决策存在迷惑性**：后续维护人员查看代码时，会疑惑如此设计的缘由
+3. **经过多方权衡**：存在多种可行方案，本次选择是基于特定考量得出
 
-## Numbering
+若决策可以轻松修改，则无需记录；若设计思路浅显易懂，旁人不会产生疑问，也无需记录；若当时本就没有其他可选方案，仅做常规选择，同样无需额外记录。
 
-Scan `docs/adr/` for the highest existing number and increment by one.
-
-## When to offer an ADR
-
-All three of these must be true:
-
-1. **Hard to reverse** — the cost of changing your mind later is meaningful
-2. **Surprising without context** — a future reader will look at the code and wonder "why on earth did they do it this way?"
-3. **The result of a real trade-off** — there were genuine alternatives and you picked one for specific reasons
-
-If a decision is easy to reverse, skip it — you'll just reverse it. If it's not surprising, nobody will wonder why. If there was no real alternative, there's nothing to record beyond "we did the obvious thing."
-
-### What qualifies
-
-- **Architectural shape.** "We're using a monorepo." "The write model is event-sourced, the read model is projected into Postgres."
-- **Integration patterns between contexts.** "Ordering and Billing communicate via domain events, not synchronous HTTP."
-- **Technology choices that carry lock-in.** Database, message bus, auth provider, deployment target. Not every library — just the ones that would take a quarter to swap out.
-- **Boundary and scope decisions.** "Customer data is owned by the Customer context; other contexts reference it by ID only." The explicit no-s are as valuable as the yes-s.
-- **Deliberate deviations from the obvious path.** "We're using manual SQL instead of an ORM because X." Anything where a reasonable reader would assume the opposite. These stop the next engineer from "fixing" something that was deliberate.
-- **Constraints not visible in the code.** "We can't use AWS because of compliance requirements." "Response times must be under 200ms because of the partner API contract."
-- **Rejected alternatives when the rejection is non-obvious.** If you considered GraphQL and picked REST for subtle reasons, record it — otherwise someone will suggest GraphQL again in six months.
+### 适用场景
+- **架构整体选型**：例如“采用单体代码仓库架构”“写入模型基于事件溯源，读取模型数据同步至 PostgreSQL”。
+- **上下文之间的集成方式**：例如“订单模块与账单模块通过领域事件交互，而非同步 HTTP 请求”。
+- **存在绑定效应的技术选型**：数据库、消息队列、身份认证服务、部署环境等。普通类库无需记录，仅记录替换成本极高（如耗时数月）的技术选型。
+- **边界与权责划分**：例如“客户数据归属于客户模块，其他模块仅通过 ID 引用”。明确的否决项和采纳项具有同等参考价值。
+- **刻意反常规的设计**：例如“出于 X 原因，选择手写 SQL 而非 ORM 框架”。这类设计容易被后续人员误改动，需要提前说明初衷。
+- **代码中无法体现的约束条件**：例如“受合规要求限制，无法使用亚马逊云服务”“根据合作方接口协议，响应耗时必须低于 200 毫秒”。
+- **否决理由不直观的备选方案**：若曾考量 GraphQL 但因深层原因选择 REST 架构，需要记录说明，避免后续人员重复提出同类方案。

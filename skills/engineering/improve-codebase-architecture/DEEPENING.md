@@ -1,37 +1,29 @@
-# Deepening
+# 模块深化
+结合依赖关系，讲解如何安全地对一组浅层模块进行整合深化。本文沿用 [LANGUAGE.md](LANGUAGE.md) 中的术语：**module（模块）**、**interface（接口）**、**seam（衔接点）**、**adapter（适配器）**。
 
-How to deepen a cluster of shallow modules safely, given its dependencies. Assumes the vocabulary in [LANGUAGE.md](LANGUAGE.md) — **module**, **interface**, **seam**, **adapter**.
+## 依赖类型
+评估待深化模块时，先对其依赖进行分类。不同类型决定了深化后的模块如何基于衔接点开展测试。
 
-## Dependency categories
+### 1. 进程内依赖
+纯计算逻辑、仅使用内存状态，无IO操作。**始终可执行模块深化**：直接合并模块，并基于新接口完成测试，无需额外适配器。
 
-When assessing a candidate for deepening, classify its dependencies. The category determines how the deepened module is tested across its seam.
+### 2. 本地可替换依赖
+可使用本地测试替身的依赖（例如用 PGLite 替代 Postgres、内存文件系统替代真实文件系统）。存在对应测试替身时，可执行模块深化。测试套件中使用该替身对深化后的模块进行测试，衔接点位于模块内部，对外接口不暴露端口。
 
-### 1. In-process
+### 3. 自有远程依赖（端口与适配器模式）
+跨网络边界的自研服务（微服务、内部接口）。在衔接点处定义**port（端口）**（接口）。深化后的模块承载核心业务逻辑，通信方式以 **adapter（适配器）** 形式注入。测试环境使用内存适配器，生产环境使用 HTTP/gRPC/消息队列适配器。
 
-Pure computation, in-memory state, no I/O. Always deepenable — merge the modules and test through the new interface directly. No adapter needed.
+参考方案示例：*“在衔接点定义端口，生产环境实现 HTTP 适配器，测试环境实现内存适配器。即便服务跨网络部署，核心逻辑仍统一收敛至单个深化模块中。”*
 
-### 2. Local-substitutable
+### 4. 第三方外部依赖（模拟桩）
+不受我方管控的第三方服务（如 Stripe、Twilio 等）。深化后的模块将外部依赖作为注入端口，测试阶段使用模拟适配器。
 
-Dependencies that have local test stand-ins (PGLite for Postgres, in-memory filesystem). Deepenable if the stand-in exists. The deepened module is tested with the stand-in running in the test suite. The seam is internal; no port at the module's external interface.
+## 衔接点使用规范
+- **一个适配器仅代表虚拟衔接点，两个及以上适配器才构成实际衔接点**。除非至少需要两类适配器（通常为生产环境+测试环境），否则不要额外定义端口。仅搭配单个适配器的衔接点，只会徒增代码间接层。
+- **区分内部衔接点与外部衔接点**：深化模块可拥有内部衔接点（仅实现内部使用、供自身测试调用），同时对外接口保留外部衔接点。不可因测试需要，就将内部衔接点对外暴露。
 
-### 3. Remote but owned (Ports & Adapters)
-
-Your own services across a network boundary (microservices, internal APIs). Define a **port** (interface) at the seam. The deep module owns the logic; the transport is injected as an **adapter**. Tests use an in-memory adapter. Production uses an HTTP/gRPC/queue adapter.
-
-Recommendation shape: *"Define a port at the seam, implement an HTTP adapter for production and an in-memory adapter for testing, so the logic sits in one deep module even though it's deployed across a network."*
-
-### 4. True external (Mock)
-
-Third-party services (Stripe, Twilio, etc.) you don't control. The deepened module takes the external dependency as an injected port; tests provide a mock adapter.
-
-## Seam discipline
-
-- **One adapter means a hypothetical seam. Two adapters means a real one.** Don't introduce a port unless at least two adapters are justified (typically production + test). A single-adapter seam is just indirection.
-- **Internal seams vs external seams.** A deep module can have internal seams (private to its implementation, used by its own tests) as well as the external seam at its interface. Don't expose internal seams through the interface just because tests use them.
-
-## Testing strategy: replace, don't layer
-
-- Old unit tests on shallow modules become waste once tests at the deepened module's interface exist — delete them.
-- Write new tests at the deepened module's interface. The **interface is the test surface**.
-- Tests assert on observable outcomes through the interface, not internal state.
-- Tests should survive internal refactors — they describe behaviour, not implementation. If a test has to change when the implementation changes, it's testing past the interface.
+## 测试策略：直接替换，而非层层嵌套
+- 当基于深化模块接口的新测试编写完成后，原有针对浅层模块的单元测试便失去价值，建议直接删除。
+- 基于深化模块的接口编写全新测试，**接口即为测试边界**。
+- 测试仅通过接口校验可观测的最终结果，不断言内部状态。
+- 测试用例应不受内部重构影响：测试描述的是**行为**，而非代码实现。如果代码实现变更就需要修改测试用例，说明测试已越过接口边界。

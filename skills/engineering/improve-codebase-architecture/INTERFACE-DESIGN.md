@@ -1,44 +1,36 @@
-# Interface Design
+# 接口设计
+当用户需要为选定的模块深化方案设计多种备选接口时，采用本并行子智能体工作模式。该模式基于奥斯特豪特提出的**二次设计法**——首个构思往往并非最优方案。
 
-When the user wants to explore alternative interfaces for a chosen deepening candidate, use this parallel sub-agent pattern. Based on "Design It Twice" (Ousterhout) — your first idea is unlikely to be the best.
+本文沿用 [LANGUAGE.md](LANGUAGE.md) 中的术语：**module（模块）**、**interface（接口）**、**seam（衔接点）**、**adapter（适配器）**、**leverage（复用性）**。
 
-Uses the vocabulary in [LANGUAGE.md](LANGUAGE.md) — **module**, **interface**, **seam**, **adapter**, **leverage**.
+## 执行流程
+### 1. 梳理问题范围
+启动子智能体前，针对当前待优化项，向用户清晰说明问题范围，内容包含：
+- 新接口必须满足的各项约束条件
+- 接口依赖项及其所属分类（参考 [DEEPENING.md](DEEPENING.md)）
+- 编写简易代码示例，具象化约束要求（仅作说明，不作为正式方案）
 
-## Process
+将以上内容展示给用户后，立即进入第二步。用户可在子智能体并行工作的同时阅读并思考。
 
-### 1. Frame the problem space
+### 2. 启动子智能体
+调用智能体工具，并行启动**至少3个**子智能体。每个子智能体需为深化后的模块设计**风格迥异**的接口方案。
 
-Before spawning sub-agents, write a user-facing explanation of the problem space for the chosen candidate:
+为每个子智能体单独下发技术概要文档，内容包含文件路径、代码耦合情况、依赖分类（参考 [DEEPENING.md](DEEPENING.md)）以及衔接点后方的业务逻辑。该技术概要与第一步面向用户的说明相互独立。同时为每个智能体分配不同的设计约束：
+- 智能体1：**精简接口**，接口入口控制在1至3个以内，最大化单个入口的复用性。
+- 智能体2：**提升灵活性**，兼容各类业务场景与扩展需求。
+- 智能体3：**适配主流调用方**，让常规场景的调用逻辑尽可能简洁。
+- 智能体4（按需启用）：基于端口与适配器模式，设计跨衔接点的依赖方案。
 
-- The constraints any new interface would need to satisfy
-- The dependencies it would rely on, and which category they fall into (see [DEEPENING.md](DEEPENING.md))
-- A rough illustrative code sketch to ground the constraints — not a proposal, just a way to make the constraints concrete
+技术概要中需统一使用 [LANGUAGE.md](LANGUAGE.md) 及 CONTEXT.md 内的标准术语，保证命名符合架构规范与项目领域定义。
 
-Show this to the user, then immediately proceed to Step 2. The user reads and thinks while the sub-agents work in parallel.
+每个子智能体需输出以下内容：
+1. 接口定义（类型、方法、参数，同时说明约束规则、调用顺序、异常处理逻辑）
+2. 调用示例，展示外部如何使用该接口
+3. 衔接点内部封装的实现细节
+4. 依赖处理方案与适配器设计（参考 [DEEPENING.md](DEEPENING.md)）
+5. 方案取舍分析：说明复用性优势与短板
 
-### 2. Spawn sub-agents
+### 3. 展示并对比方案
+按顺序逐一展示各套设计方案，方便用户理解，随后以文字形式横向对比。对比维度包括**深度**（接口复用能力）、**内聚性**（代码变更集中区域）以及**衔接点位置**。
 
-Spawn 3+ sub-agents in parallel using the Agent tool. Each must produce a **radically different** interface for the deepened module.
-
-Prompt each sub-agent with a separate technical brief (file paths, coupling details, dependency category from [DEEPENING.md](DEEPENING.md), what sits behind the seam). The brief is independent of the user-facing problem-space explanation in Step 1. Give each agent a different design constraint:
-
-- Agent 1: "Minimize the interface — aim for 1–3 entry points max. Maximise leverage per entry point."
-- Agent 2: "Maximise flexibility — support many use cases and extension."
-- Agent 3: "Optimise for the most common caller — make the default case trivial."
-- Agent 4 (if applicable): "Design around ports & adapters for cross-seam dependencies."
-
-Include both [LANGUAGE.md](LANGUAGE.md) vocabulary and CONTEXT.md vocabulary in the brief so each sub-agent names things consistently with the architecture language and the project's domain language.
-
-Each sub-agent outputs:
-
-1. Interface (types, methods, params — plus invariants, ordering, error modes)
-2. Usage example showing how callers use it
-3. What the implementation hides behind the seam
-4. Dependency strategy and adapters (see [DEEPENING.md](DEEPENING.md))
-5. Trade-offs — where leverage is high, where it's thin
-
-### 3. Present and compare
-
-Present designs sequentially so the user can absorb each one, then compare them in prose. Contrast by **depth** (leverage at the interface), **locality** (where change concentrates), and **seam placement**.
-
-After comparing, give your own recommendation: which design you think is strongest and why. If elements from different designs would combine well, propose a hybrid. Be opinionated — the user wants a strong read, not a menu.
+对比完成后给出明确建议：选出最优方案并说明理由。若多套方案的亮点可结合，提出融合方案。结论需观点明确，为用户提供定向参考，而非单纯罗列选项。

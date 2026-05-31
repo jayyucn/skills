@@ -1,28 +1,25 @@
 ---
 name: grill-with-docs
-description: Grilling session that challenges your plan against the existing domain model, sharpens terminology, and updates documentation (CONTEXT.md, ADRs) inline as decisions crystallise. Use when user wants to stress-test a plan against their project's language and documented decisions.
+description: 结合现有领域模型对方案进行深度质询，统一专业术语，并在确定各项决策后同步更新文档（CONTEXT.md、架构决策记录）。适用于用户希望结合项目现有定义与成文决策，对方案开展压力测试的场景。
 ---
 
 <what-to-do>
 
-Interview me relentlessly about every aspect of this plan until we reach a shared understanding. Walk down each branch of the design tree, resolving dependencies between decisions one-by-one. For each question, provide your recommended answer.
+针对该方案的所有细节持续追问，直至双方达成共识。逐一梳理设计树的各个分支，逐个理清决策之间的依赖关系。每个问题均附上建议答案。
 
-Ask the questions one at a time, waiting for feedback on each question before continuing.
+每次仅提出一个问题，等待反馈后再继续下一问。
 
-If a question can be answered by exploring the codebase, explore the codebase instead.
+若可通过查阅代码库解答问题，则直接查阅代码库，不再提问。
 
 </what-to-do>
 
 <supporting-info>
 
-## Domain awareness
+## 领域认知要求
+查阅代码库的同时，同步检索现有文档。
 
-During codebase exploration, also look for existing documentation:
-
-### File structure
-
-Most repos have a single context:
-
+### 文件目录结构
+多数代码仓库仅包含一套领域上下文，目录结构如下：
 ```
 /
 ├── CONTEXT.md
@@ -33,56 +30,47 @@ Most repos have a single context:
 └── src/
 ```
 
-If a `CONTEXT-MAP.md` exists at the root, the repo has multiple contexts. The map points to where each one lives:
-
+若根目录下存在 `CONTEXT-MAP.md`，说明仓库包含多套领域上下文。该文件会标注各上下文所在位置：
 ```
 /
 ├── CONTEXT-MAP.md
 ├── docs/
-│   └── adr/                          ← system-wide decisions
+│   └── adr/                          ← 系统级决策文档
 ├── src/
 │   ├── ordering/
 │   │   ├── CONTEXT.md
-│   │   └── docs/adr/                 ← context-specific decisions
+│   │   └── docs/adr/                 ← 单领域专属决策文档
 │   └── billing/
 │       ├── CONTEXT.md
 │       └── docs/adr/
 ```
 
-Create files lazily — only when you have something to write. If no `CONTEXT.md` exists, create one when the first term is resolved. If no `docs/adr/` exists, create it when the first ADR is needed.
+按需创建文件，有内容需要记录时再新建。若无 `CONTEXT.md`，在首个术语敲定后创建；若无 `docs/adr/` 目录，在需要编写第一份架构决策记录时创建。
 
-## During the session
+## 质询过程规范
+### 核对术语定义
+若用户使用的词汇与 `CONTEXT.md` 中的现有定义冲突，立即指出。示例：“文档中将‘取消’定义为X，但你当前想表达的是Y，请确认具体所指。”
 
-### Challenge against the glossary
+### 规范模糊表述
+当用户使用语义模糊、多义复用的词汇时，给出标准、精准的定名建议。示例：“你提到了‘账户’，实际指的是客户账号还是系统用户账号？二者并不等同。”
 
-When the user uses a term that conflicts with the existing language in `CONTEXT.md`, call it out immediately. "Your glossary defines 'cancellation' as X, but you seem to mean Y — which is it?"
+### 结合实际场景推演
+讨论领域关联关系时，通过具体场景验证合理性。设计边界场景，倒逼用户明确各个概念的适用范围与划分界限。
 
-### Sharpen fuzzy language
+### 对照代码核验
+用户描述业务逻辑后，核对代码实现是否与其表述一致。若发现矛盾之处及时提出。示例：“代码逻辑为整单取消，但你刚才表示支持部分取消，请确认实际规则。”
 
-When the user uses vague or overloaded terms, propose a precise canonical term. "You're saying 'account' — do you mean the Customer or the User? Those are different things."
+### 实时更新 CONTEXT.md
+术语一经敲定，立即同步更新 `CONTEXT.md`，不要批量延后处理，做到即时记录。格式遵循 [CONTEXT-FORMAT.md](./CONTEXT-FORMAT.md)。
 
-### Discuss concrete scenarios
+`CONTEXT.md` 仅用于收录术语释义，**严禁写入代码实现细节**。不可将其当作功能规范、临时草稿或实现决策文档。
 
-When domain relationships are being discussed, stress-test them with specific scenarios. Invent scenarios that probe edge cases and force the user to be precise about the boundaries between concepts.
+### 审慎编写架构决策记录（ADR）
+仅当同时满足以下三个条件时，才建议新建架构决策记录：
+1. **变更成本高**：后续调整该决策会产生较大代价
+2. **决策不易理解**：后人查阅时会疑惑如此设计的原因
+3. **经过权衡取舍**：存在多种可行方案，且本次选择有明确依据
 
-### Cross-reference with code
-
-When the user states how something works, check whether the code agrees. If you find a contradiction, surface it: "Your code cancels entire Orders, but you just said partial cancellation is possible — which is right?"
-
-### Update CONTEXT.md inline
-
-When a term is resolved, update `CONTEXT.md` right there. Don't batch these up — capture them as they happen. Use the format in [CONTEXT-FORMAT.md](./CONTEXT-FORMAT.md).
-
-`CONTEXT.md` should be totally devoid of implementation details. Do not treat `CONTEXT.md` as a spec, a scratch pad, or a repository for implementation decisions. It is a glossary and nothing else.
-
-### Offer ADRs sparingly
-
-Only offer to create an ADR when all three are true:
-
-1. **Hard to reverse** — the cost of changing your mind later is meaningful
-2. **Surprising without context** — a future reader will wonder "why did they do it this way?"
-3. **The result of a real trade-off** — there were genuine alternatives and you picked one for specific reasons
-
-If any of the three is missing, skip the ADR. Use the format in [ADR-FORMAT.md](./ADR-FORMAT.md).
+任意一条不满足，则无需编写架构决策记录。文档格式遵循 [ADR-FORMAT.md](./ADR-FORMAT.md)。
 
 </supporting-info>

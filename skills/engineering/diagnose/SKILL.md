@@ -1,117 +1,102 @@
 ---
 name: diagnose
-description: Disciplined diagnosis loop for hard bugs and performance regressions. Reproduce → minimise → hypothesise → instrument → fix → regression-test. Use when user says "diagnose this" / "debug this", reports a bug, says something is broken/throwing/failing, or describes a performance regression.
+description: 针对顽固漏洞与性能退化问题执行标准化排查流程。流程：复现问题 → 精简场景 → 提出假设 → 埋点监测 → 修复问题 → 回归测试。当用户说出“diagnose this”/“debug this”、反馈漏洞、提示程序异常/报错/运行失败，或是描述性能退化问题时，启用本技能。
 ---
 
-# Diagnose
+# 问题排查
+一套针对顽固漏洞的标准化排查流程。无合理依据不得跳过任一环节。
 
-A discipline for hard bugs. Skip phases only when explicitly justified.
+研读代码时，结合项目领域术语理解相关模块逻辑，并查阅对应区域的架构决策记录。
 
-When exploring the codebase, use the project's domain glossary to get a clear mental model of the relevant modules, and check ADRs in the area you're touching.
+## 第一阶段 — 搭建反馈验证机制
+**这是核心环节**，其余步骤均为常规操作。只要能搭建出一套可由智能体执行、结果明确（通过/失败）且运行稳定的验证机制，就能定位问题根源。二分排查、假设验证、埋点监测，全都依赖这套机制。若缺少有效验证机制，单纯研读代码无法解决问题。
 
-## Phase 1 — Build a feedback loop
+请在此环节投入足够精力，积极尝试、灵活变通、不轻言放弃。
 
-**This is the skill.** Everything else is mechanical. If you have a fast, deterministic, agent-runnable pass/fail signal for the bug, you will find the cause — bisection, hypothesis-testing, and instrumentation all just consume that signal. If you don't have one, no amount of staring at code will save you.
+### 搭建方式（按优先级依次尝试）
+1. 在问题触发节点编写**失败用例**：单元测试、集成测试、端到端测试均可。
+2. 借助 **Curl/HTTP 脚本** 调用本地开发服务。
+3. 编写**命令行调用指令**，传入测试样本，对比标准输出与正常快照。
+4. 使用无头浏览器脚本（Playwright / Puppeteer）：模拟页面操作，校验文档对象模型、控制台日志及网络请求。
+5. **重放捕获链路**：将真实网络请求、数据载荷、事件日志保存至本地，单独复现对应代码链路。
+6. **临时测试载体**：搭建最简系统环境（单服务+模拟依赖），通过单次函数调用触发问题代码。
+7. **随机/模糊测试**：针对偶现异常，批量运行千组随机输入，复现故障现象。
+8. **二分测试载体**：若问题出现在两个版本/数据集/迭代之间，自动化执行“切换版本→校验结果”，配合 `git bisect run` 完成二分排查。
+9. **对比测试**：使用相同输入分别运行新旧版本（或不同配置），比对输出差异。
+10. **人机协同脚本**（最后方案）：如需人工点击操作，使用模板脚本引导人工流程，保证排查流程规范化，采集运行结果用于分析。
 
-Spend disproportionate effort here. **Be aggressive. Be creative. Refuse to give up.**
+搭建好有效的验证机制，问题就已解决九成。
 
-### Ways to construct one — try them in roughly this order
+### 持续优化验证机制
+将验证机制当作正式功能迭代优化，完成基础版本后自查：
+- 能否提升运行速度？（缓存环境、跳过无关初始化、缩小测试范围）
+- 能否让结果指向更精准？（针对具体异常现象断言，而非仅判断程序是否崩溃）
+- 能否提升运行稳定性？（固定时间、指定随机数种子、隔离文件系统、锁定网络环境）
 
-1. **Failing test** at whatever seam reaches the bug — unit, integration, e2e.
-2. **Curl / HTTP script** against a running dev server.
-3. **CLI invocation** with a fixture input, diffing stdout against a known-good snapshot.
-4. **Headless browser script** (Playwright / Puppeteer) — drives the UI, asserts on DOM/console/network.
-5. **Replay a captured trace.** Save a real network request / payload / event log to disk; replay it through the code path in isolation.
-6. **Throwaway harness.** Spin up a minimal subset of the system (one service, mocked deps) that exercises the bug code path with a single function call.
-7. **Property / fuzz loop.** If the bug is "sometimes wrong output", run 1000 random inputs and look for the failure mode.
-8. **Bisection harness.** If the bug appeared between two known states (commit, dataset, version), automate "boot at state X, check, repeat" so you can `git bisect run` it.
-9. **Differential loop.** Run the same input through old-version vs new-version (or two configs) and diff outputs.
-10. **HITL bash script.** Last resort. If a human must click, drive _them_ with `scripts/hitl-loop.template.sh` so the loop is still structured. Captured output feeds back to you.
+运行30秒且结果不稳定的验证机制，和无机制差别不大；运行2秒且结果稳定的机制，是排查漏洞的强力工具。
 
-Build the right feedback loop, and the bug is 90% fixed.
+### 偶现类问题
+此类问题无需做到百分百稳定复现，**重点是提升复现概率**。循环多次触发、并行运行、增加压力测试、压缩时间窗口、插入延时。复现概率达到50%即可开展排查；若仅1%复现率，则继续优化直至可正常分析。
 
-### Iterate on the loop itself
+### 确实无法搭建验证机制的情况
+如实说明，并列出所有尝试过的方案。向用户申请：(a) 可复现问题的环境权限；(b) 相关日志文件、内核转储、带时间戳的录屏等采集文件；(c) 在生产环境临时添加监测代码的权限。**没有验证机制，严禁进入假设分析环节。**
 
-Treat the loop as a product. Once you have _a_ loop, ask:
+确认搭建出可靠的验证机制后，再进入第二阶段。
 
-- Can I make it faster? (Cache setup, skip unrelated init, narrow the test scope.)
-- Can I make the signal sharper? (Assert on the specific symptom, not "didn't crash".)
-- Can I make it more deterministic? (Pin time, seed RNG, isolate filesystem, freeze network.)
+## 第二阶段 — 复现问题
+运行验证机制，确认问题可以复现。
 
-A 30-second flaky loop is barely better than no loop. A 2-second deterministic loop is a debugging superpower.
+逐项核对：
+- [ ] 复现的异常与**用户描述**一致，而非其他连带问题。排查错误问题，只会得出错误修复方案。
+- [ ] 多次运行均可稳定复现（偶现问题需保证复现概率满足排查要求）。
+- [ ] 完整记录异常细节（报错信息、错误输出、耗时异常等），用于后续验证修复效果。
 
-### Non-deterministic bugs
+问题成功复现后，再进入下一阶段。
 
-The goal is not a clean repro but a **higher reproduction rate**. Loop the trigger 100×, parallelise, add stress, narrow timing windows, inject sleeps. A 50%-flake bug is debuggable; 1% is not — keep raising the rate until it's debuggable.
+## 第三阶段 — 提出假设
+开始验证前，先列出**3-5条优先级排序的问题假设**。仅依靠单一假设，容易陷入固有思维。
 
-### When you genuinely cannot build a loop
+每条假设必须**可证伪**，并写明对应的预判结果。
 
-Stop and say so explicitly. List what you tried. Ask the user for: (a) access to whatever environment reproduces it, (b) a captured artifact (HAR file, log dump, core dump, screen recording with timestamps), or (c) permission to add temporary production instrumentation. Do **not** proceed to hypothesise without a loop.
+> 格式：“若 <原因X> 为问题根源，那么 <修改Y> 可修复漏洞 / <修改Z> 会加剧异常。”
 
-Do not proceed to Phase 2 until you have a loop you believe in.
+无法明确预判结果的假设属于主观猜测，需舍弃或完善。
 
-## Phase 2 — Reproduce
+**验证前将排序后的假设清单同步给用户**。用户掌握业务信息，可快速调整假设优先级，也能告知已排除的方向。这一步耗时短、效率高。若用户未回应，可按现有排序继续排查。
 
-Run the loop. Watch the bug appear.
+## 第四阶段 — 埋点监测
+所有监测动作，均需对应第三阶段的假设预判。**每次只变更一个变量**。
 
-Confirm:
+工具选用优先级：
+1. 环境支持时，优先使用**调试器/交互式解释器**。一个断点效果远胜于多条日志。
+2. 在关键分界点添加**定向日志**，区分不同假设场景。
+3. 禁止全量打印日志后再筛选。
 
-- [ ] The loop produces the failure mode the **user** described — not a different failure that happens to be nearby. Wrong bug = wrong fix.
-- [ ] The failure is reproducible across multiple runs (or, for non-deterministic bugs, reproducible at a high enough rate to debug against).
-- [ ] You have captured the exact symptom (error message, wrong output, slow timing) so later phases can verify the fix actually addresses it.
+**为每条调试日志添加唯一标识前缀**，例如 `[DEBUG-a4f2]`。后续清理时可一键筛选删除，避免调试日志残留。
 
-Do not proceed until you reproduce the bug.
+**性能退化专项**：排查性能问题不建议单纯打印日志。先建立基准指标（耗时统计、性能接口、分析工具、查询计划），再使用二分法定位问题。先采集数据，再着手修复。
 
-## Phase 3 — Hypothesise
+## 第五阶段 — 修复问题 + 回归测试
+在存在**合理测试入口**的前提下，**先编写回归测试用例，再修复漏洞**。
 
-Generate **3–5 ranked hypotheses** before testing any of them. Single-hypothesis generation anchors on the first plausible idea.
+合理测试入口：测试用例能够还原调用链路中真实的故障场景。若测试入口层级过浅（问题需要多调用方触发，却仅做单调用方测试；单元测试无法复现完整异常链路），此类回归测试会造成安全误判。
 
-Each hypothesis must be **falsifiable**: state the prediction it makes.
+**若不存在合理测试入口，这本身也是重要结论**，需做好记录。说明现有代码架构无法通过用例锁定该漏洞，并标注为后续优化项。
 
-> Format: "If <X> is the cause, then <changing Y> will make the bug disappear / <changing Z> will make it worse."
+存在合理测试入口时，按以下步骤执行：
+1. 将精简后的复现流程转化为对应入口的失败测试用例。
+2. 确认用例可复现问题。
+3. 执行代码修复。
+4. 确认测试用例运行正常。
+5. 用第一阶段的验证机制，重新校验原始完整场景。
 
-If you cannot state the prediction, the hypothesis is a vibe — discard or sharpen it.
+## 第六阶段 — 清理收尾 + 问题复盘
+确认完成前，必须完成以下检查：
+- [ ] 原始复现流程不再触发异常（重新运行第一阶段验证机制）
+- [ ] 回归测试用例运行正常（无合理测试入口则需书面记录）
+- [ ] 移除所有 `[DEBUG-...]` 调试监测代码（根据前缀检索清理）
+- [ ] 删除临时测试代码，或统一归档至专用调试目录
+- [ ] 在提交记录/合并请求中写明最终定位的问题原因，方便后续人员参考学习
 
-**Show the ranked list to the user before testing.** They often have domain knowledge that re-ranks instantly ("we just deployed a change to #3"), or know hypotheses they've already ruled out. Cheap checkpoint, big time saver. Don't block on it — proceed with your ranking if the user is AFK.
-
-## Phase 4 — Instrument
-
-Each probe must map to a specific prediction from Phase 3. **Change one variable at a time.**
-
-Tool preference:
-
-1. **Debugger / REPL inspection** if the env supports it. One breakpoint beats ten logs.
-2. **Targeted logs** at the boundaries that distinguish hypotheses.
-3. Never "log everything and grep".
-
-**Tag every debug log** with a unique prefix, e.g. `[DEBUG-a4f2]`. Cleanup at the end becomes a single grep. Untagged logs survive; tagged logs die.
-
-**Perf branch.** For performance regressions, logs are usually wrong. Instead: establish a baseline measurement (timing harness, `performance.now()`, profiler, query plan), then bisect. Measure first, fix second.
-
-## Phase 5 — Fix + regression test
-
-Write the regression test **before the fix** — but only if there is a **correct seam** for it.
-
-A correct seam is one where the test exercises the **real bug pattern** as it occurs at the call site. If the only available seam is too shallow (single-caller test when the bug needs multiple callers, unit test that can't replicate the chain that triggered the bug), a regression test there gives false confidence.
-
-**If no correct seam exists, that itself is the finding.** Note it. The codebase architecture is preventing the bug from being locked down. Flag this for the next phase.
-
-If a correct seam exists:
-
-1. Turn the minimised repro into a failing test at that seam.
-2. Watch it fail.
-3. Apply the fix.
-4. Watch it pass.
-5. Re-run the Phase 1 feedback loop against the original (un-minimised) scenario.
-
-## Phase 6 — Cleanup + post-mortem
-
-Required before declaring done:
-
-- [ ] Original repro no longer reproduces (re-run the Phase 1 loop)
-- [ ] Regression test passes (or absence of seam is documented)
-- [ ] All `[DEBUG-...]` instrumentation removed (`grep` the prefix)
-- [ ] Throwaway prototypes deleted (or moved to a clearly-marked debug location)
-- [ ] The hypothesis that turned out correct is stated in the commit / PR message — so the next debugger learns
-
-**Then ask: what would have prevented this bug?** If the answer involves architectural change (no good test seam, tangled callers, hidden coupling) hand off to the `/improve-codebase-architecture` skill with the specifics. Make the recommendation **after** the fix is in, not before — you have more information now than when you started.
+**最后思考：如何从根源规避同类问题？**
+若结论指向架构缺陷（缺少合理测试入口、调用关系混乱、耦合严重），整理详细信息并移交至`/improve-codebase-architecture`技能处理。**务必完成修复后再提出架构优化建议**，此时掌握的信息更加全面。
