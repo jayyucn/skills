@@ -1,22 +1,23 @@
 ---
 name: grilling
-description: Grill the user relentlessly about a plan, decision, or idea. Use when the user wants to stress-test their thinking, or uses any 'grill' trigger phrases.
+description: 毫不留情地拷问用户关于某个计划、决策或想法。当用户想压力测试自己的思路，或使用任何 'grill' 触发词时使用。
 ---
 
-Interview the user relentlessly until you reach a shared understanding. Map this as a **design tree**: every decision branches into the decisions that hang off it.
+毫不留情地访谈用户，直到达成共同理解。将此过程映射为一棵**设计树**（design tree）：每个决策都分支出挂在它下面的决策。
 
-Work the tree in **rounds**. The **frontier** is every decision whose prerequisites are already settled — the questions you can ask _now_ without guessing at answers you haven't heard yet. Ask the whole frontier in one round: number each question and give your recommended answer. Then wait for the user's answers before the next round.
+以**轮次**（rounds）推进这棵树。**前沿**（frontier）指所有前提条件已确定的决策——也就是你_现在_就能提出、无需猜测尚未听到的答案的问题。每一轮把整个前沿一次性问完：给每个问题编号，并给出你的推荐答案。然后等待用户回答后再进入下一轮。
 
-Each question should be formatted like so:
+每个问题必须通过 **AskUserQuestion 工具**呈现为可点击的选项对话框，用户点选即答、不中断会话。**禁止用 markdown 文本（❓/**Q1**/`[]` 之类）伪造对话框**——文本复选框不可点击，不满足交互要求。使用规则：
 
-```
-❓ **Q1** - **<question title>**: <question body, might be multiple paragraphs, including multiple choices>
+- 一次 AskUserQuestion 调用承载**一整轮前沿**。注意该工具单次上限 4 个问题：前沿超过 4 个时，本轮先问最上游的 4 个，其余顺延到下一轮（不是丢弃）。
+- `header`：≤12 字符的问题短标签；`question`：完整问题（可含必要背景）。
+- 选项 2–4 个：**推荐答案放第一个**，label 以 "(推荐)" 结尾；`description` 说清该选项的取舍与后果。
+- 长背景/事实摘要/多段说明放在提问前的正文文本里——AskUserQuestion 卡片装不下大段内容，正文负责铺垫，卡片负责决策。
+- 仅当 AskUserQuestion 工具确实不可用时，才退化为纯文本列出问题与选项。
 
-➡️ <your recommended answer>
-```
+用户每轮的回答都会重塑这棵树——已确定的决策会把前沿向外推进，并解锁依赖它们的问题。重新计算前沿，然后进行下一轮。若某问题的答案依赖本轮仍未解决的问题，它应属于 _更晚的_ 轮次，而非本轮。
 
-Each round the user answers reshapes the tree — settled decisions push the frontier outward and unblock questions that depended on them. Recompute the frontier and ask the next round. A question whose answer depends on another question still open in this round belongs to a _later_ round, not this one.
+查找 _事实_ 是你的职责，绝不该推给用户。当前沿问题需要来自环境（文件系统、工具等）的事实时，派出子代理（sub-agent）去查找——凡是能自己查到的，就不要问用户。不要因此阻塞：进行中的探索属于尚未确定的前提，因此只有位于其下游的问题需要等子代理汇报——其余前沿问题照常提出。_决策_ 则属于用户——逐个抛给用户并等待回答。
 
-Finding _facts_ is your job, never the user's. When a frontier question needs a fact from the environment (filesystem, tools, etc.), dispatch a sub-agent to find it — don't ask the user for anything you could look up yourself. Don't block on it: a running exploration is an unsettled prerequisite, so only the questions downstream of it wait for the sub-agent to report — ask the rest of the frontier now. The _decisions_ are the user's — put each to them and wait.
+在前沿为空前不要结束会话：设计树的每个分支都已走到，没有任何遗留的默认假设。在用户确认你们已达成共同理解之前，不要据此采取任何行动。
 
-The session is done when the frontier is empty: every branch of the design tree visited, nothing left silently assumed. Do not act on it until the user confirms you have reached a shared understanding.

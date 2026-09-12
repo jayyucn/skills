@@ -1,12 +1,12 @@
-# Good and Bad Tests
+# 好测试与坏测试
 
-## Good Tests
+## 好测试
 
-**Integration-style**: Test through real interfaces, not mocks of internal parts.
+**集成风格**：通过真实接口测试，而不是 mock 内部部件。
 
 ```typescript
-// GOOD: Tests observable behavior
-test("user can checkout with valid cart", async () => {
+// 好：测试可观察的行为
+test("用户可以用有效购物车结账", async () => {
   const cart = createCart();
   cart.add(product);
   const result = await checkout(cart, paymentMethod);
@@ -14,64 +14,64 @@ test("user can checkout with valid cart", async () => {
 });
 ```
 
-Characteristics:
+特征：
 
-- Tests behavior users/callers care about
-- Uses public API only
-- Survives internal refactors
-- Describes WHAT, not HOW
-- One logical assertion per test
+- 测试用户/调用方关心的行为
+- 只使用公共 API
+- 在内部重构后依然有效
+- 描述做什么，而不是怎么做
+- 每个测试一个逻辑断言
 
-## Bad Tests
+## 坏测试
 
-**Implementation-detail tests**: Coupled to internal structure.
+**实现细节测试**：与内部结构耦合。
 
 ```typescript
-// BAD: Tests implementation details
-test("checkout calls paymentService.process", async () => {
+// 差：测试实现细节
+test("checkout 调用了 paymentService.process", async () => {
   const mockPayment = jest.mock(paymentService);
   await checkout(cart, payment);
   expect(mockPayment.process).toHaveBeenCalledWith(cart.total);
 });
 ```
 
-Red flags:
+危险信号：
 
-- Mocking internal collaborators
-- Testing private methods
-- Asserting on call counts/order
-- Test breaks when refactoring without behavior change
-- Test name describes HOW not WHAT
-- Verifying through external means instead of interface
+- mock 内部协作者
+- 测试私有方法
+- 对调用次数/顺序做断言
+- 重构但行为未变时测试就挂
+- 测试名描述的是怎么做而不是做什么
+- 通过外部手段而不是接口来验证
 
 ```typescript
-// BAD: Bypasses interface to verify
-test("createUser saves to database", async () => {
+// 差：绕过接口去验证
+test("createUser 保存到数据库", async () => {
   await createUser({ name: "Alice" });
   const row = await db.query("SELECT * FROM users WHERE name = ?", ["Alice"]);
   expect(row).toBeDefined();
 });
 
-// GOOD: Verifies through interface
-test("createUser makes user retrievable", async () => {
+// 好：通过接口验证
+test("createUser 让用户可以被取回", async () => {
   const user = await createUser({ name: "Alice" });
   const retrieved = await getUser(user.id);
   expect(retrieved.name).toBe("Alice");
 });
 ```
 
-**Tautological tests**: Expected value restates the implementation, so the test passes by construction.
+**同义反复测试**：期望值只是把实现复述一遍，因此测试在构造上必然通过。
 
 ```typescript
-// BAD: Expected value is recomputed the way the code computes it
-test("calculateTotal sums line items", () => {
+// 差：期望值用与代码相同的方式重新计算
+test("calculateTotal 对行项目求和", () => {
   const items = [{ price: 10 }, { price: 5 }];
   const expected = items.reduce((sum, i) => sum + i.price, 0);
   expect(calculateTotal(items)).toBe(expected);
 });
 
-// GOOD: Expected value is an independent, known literal
-test("calculateTotal sums line items", () => {
+// 好：期望值是独立、已知的字面量
+test("calculateTotal 对行项目求和", () => {
   expect(calculateTotal([{ price: 10 }, { price: 5 }])).toBe(15);
 });
 ```

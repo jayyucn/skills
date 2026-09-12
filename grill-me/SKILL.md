@@ -1,6 +1,6 @@
 ---
 name: grill-me
-description: A relentless interview to sharpen a plan or design.
+description: 一场毫不留情的访谈，用于打磨你的计划或设计。
 ---
 
-Run a `/grilling` session.
+运行一次 `/grilling` 会话。
