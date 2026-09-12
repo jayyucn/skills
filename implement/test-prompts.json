@@ -1,0 +1,20 @@
+[
+  {
+    "id": 1,
+    "prompt": "请实现 .scratch/loyalty-points/issues/01-earn-points-on-order.md 这张工单",
+    "expected": "先读完整工单（验收标准 + 被阻塞于），确认阻塞项已满足；与用户约定接缝后按 TDD 垂直切片实现；过程中定期跑类型检查与单个测试文件；收尾跑完整测试套件；完成后调用 /code-review；提交到当前分支",
+    "type": "happy_path"
+  },
+  {
+    "id": 2,
+    "prompt": "把 specs/2026-09-coupon-stack.md 这个规格实现了，另外顺便把相关的旧 TODO 也清理一下吧",
+    "expected": "按规格实现，但把『顺手清 TODO』识别为规格外的 scope 蔓延，先澄清或拒绝而非默默一起做；TDD/检查/评审/提交流程不变",
+    "type": "scope_ambiguity"
+  },
+  {
+    "id": 3,
+    "prompt": "工单 03 依赖工单 01，不过 01 还没做完，你先做 03 吧",
+    "expected": "识别阻塞边未满足，不直接开工 03；提示 03 被 01 阻塞，建议先处理前沿（frontier）工单，或请用户明确决定",
+    "type": "blocking_edge"
+  }
+]
